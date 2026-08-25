@@ -180,3 +180,87 @@ html, body {
   .header h1 { font-size: 1.25rem; }
   .btn { font-size: 0.85rem; padding: 9px 12px; }
 }
+
+/* ---------- トリミングモーダル ---------- */
+.crop-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 10, 30, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+.crop-modal.hidden { display: none; }
+
+.crop-card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 94vw;
+}
+
+.crop-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: center;
+}
+
+.crop-stage {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  touch-action: none;
+}
+.crop-stage img {
+  display: block;
+  max-width: 82vw;
+  max-height: 52vh;
+  width: auto;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+  border-radius: 4px;
+}
+
+.crop-box {
+  position: absolute;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(0, 0, 0, 0.45);
+  cursor: move;
+  touch-action: none;
+}
+
+.crop-handle {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  background: #fff;
+  border: 3px solid var(--accent);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  touch-action: none;
+}
+.crop-handle::before {
+  /* タップしやすいように見た目より広い当たり判定を確保 */
+  content: "";
+  position: absolute;
+  inset: -14px;
+}
+.crop-handle[data-corner="nw"] { left: 0; top: 0; cursor: nwse-resize; }
+.crop-handle[data-corner="ne"] { left: 100%; top: 0; cursor: nesw-resize; }
+.crop-handle[data-corner="sw"] { left: 0; top: 100%; cursor: nesw-resize; }
+.crop-handle[data-corner="se"] { left: 100%; top: 100%; cursor: nwse-resize; }
+
+.crop-actions {
+  display: flex;
+  gap: 10px;
+}

@@ -37,7 +37,7 @@
 
     <div class="row">
       <button class="btn primary" id="shareBtn">📤 画像をシェア</button>
-      <button class="btn primary video" id="videoBtn">🎬 変顔動画をシェア</button>
+      <button class="btn primary video" id="videoBtn">🎬 動画をシェア</button>
     </div>
   </div>
 
@@ -48,6 +48,24 @@
   <footer class="footer">
     製作：<a href="https://sin1.studio" target="_blank" rel="noopener">sin1's studio</a>
   </footer>
+</div>
+
+<div id="cropModal" class="crop-modal hidden">
+  <div class="crop-card">
+    <p class="crop-title">トリミング（そのまま使う場合は「全体を使う」）</p>
+    <div class="crop-stage" id="cropStage">
+      <div id="cropBox" class="crop-box">
+        <div class="crop-handle" data-corner="nw"></div>
+        <div class="crop-handle" data-corner="ne"></div>
+        <div class="crop-handle" data-corner="sw"></div>
+        <div class="crop-handle" data-corner="se"></div>
+      </div>
+    </div>
+    <div class="crop-actions">
+      <button class="btn" id="cropSkipBtn">全体を使う</button>
+      <button class="btn primary" id="cropApplyBtn">この範囲で決定</button>
+    </div>
+  </div>
 </div>
 
 <script src="script.js"></script>

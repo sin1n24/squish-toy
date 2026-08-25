@@ -11,6 +11,11 @@
   const radiusInput = document.getElementById("radius");
   const shareBtn = document.getElementById("shareBtn");
   const videoBtn = document.getElementById("videoBtn");
+  const cropModal = document.getElementById("cropModal");
+  const cropStage = document.getElementById("cropStage");
+  const cropBox = document.getElementById("cropBox");
+  const cropSkipBtn = document.getElementById("cropSkipBtn");
+  const cropApplyBtn = document.getElementById("cropApplyBtn");
 
   const gl = canvas.getContext("webgl", { preserveDrawingBuffer: true, antialias: true })
           || canvas.getContext("experimental-webgl", { preserveDrawingBuffer: true });
@@ -183,11 +188,134 @@
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
-      setImage(img);
+      openCropModal(img);
       URL.revokeObjectURL(url);
     };
     img.src = url;
   }
+
+  // ---------- トリミング（画像選択のたび1回だけ） ----------
+  let cropState = null; // { pendingImg, displayW, displayH, box:{x,y,w,h} }
+  const CROP_MIN = 40;
+
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function updateCropBoxUI() {
+    const { box } = cropState;
+    cropBox.style.left = box.x + "px";
+    cropBox.style.top = box.y + "px";
+    cropBox.style.width = box.w + "px";
+    cropBox.style.height = box.h + "px";
+  }
+
+  function openCropModal(img) {
+    cropStage.querySelectorAll("img.crop-target").forEach((n) => n.remove());
+    const el = document.createElement("img");
+    el.className = "crop-target";
+    el.src = img.src;
+    el.alt = "";
+    cropStage.insertBefore(el, cropBox);
+    cropModal.classList.remove("hidden");
+
+    const setup = () => {
+      const displayW = el.clientWidth;
+      const displayH = el.clientHeight;
+      cropState = {
+        pendingImg: img,
+        displayW,
+        displayH,
+        box: { x: 0, y: 0, w: displayW, h: displayH },
+      };
+      updateCropBoxUI();
+    };
+    if (el.complete && el.naturalWidth) setup();
+    else el.onload = setup;
+  }
+
+  function closeCropModal() {
+    cropModal.classList.add("hidden");
+    cropStage.querySelectorAll("img.crop-target").forEach((n) => n.remove());
+    cropState = null;
+  }
+
+  function onCropPointerDown(e) {
+    if (!cropState) return;
+    const handle = e.target.closest(".crop-handle");
+    const isBoxBody = e.target === cropBox;
+    if (!handle && !isBoxBody) return;
+    e.preventDefault();
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startBox = { ...cropState.box };
+    const corner = handle ? handle.dataset.corner : null;
+
+    function onMove(ev) {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      const { displayW, displayH } = cropState;
+      let { x, y, w, h } = startBox;
+      if (corner) {
+        if (corner.includes("w")) {
+          const nx = clamp(startBox.x + dx, 0, startBox.x + startBox.w - CROP_MIN);
+          w = startBox.w - (nx - startBox.x);
+          x = nx;
+        }
+        if (corner.includes("e")) {
+          w = clamp(startBox.w + dx, CROP_MIN, displayW - startBox.x);
+        }
+        if (corner.includes("n")) {
+          const ny = clamp(startBox.y + dy, 0, startBox.y + startBox.h - CROP_MIN);
+          h = startBox.h - (ny - startBox.y);
+          y = ny;
+        }
+        if (corner.includes("s")) {
+          h = clamp(startBox.h + dy, CROP_MIN, displayH - startBox.y);
+        }
+      } else {
+        x = clamp(startBox.x + dx, 0, displayW - startBox.w);
+        y = clamp(startBox.y + dy, 0, displayH - startBox.h);
+      }
+      cropState.box = { x, y, w, h };
+      updateCropBoxUI();
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  }
+
+  cropStage.addEventListener("pointerdown", onCropPointerDown);
+
+  cropApplyBtn.addEventListener("click", () => {
+    if (!cropState) return;
+    const { pendingImg, displayW, box } = cropState;
+    const scale = pendingImg.naturalWidth / displayW;
+    const sx = box.x * scale;
+    const sy = box.y * scale;
+    const sw = box.w * scale;
+    const sh = box.h * scale;
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(sw));
+    c.height = Math.max(1, Math.round(sh));
+    const ctx = c.getContext("2d");
+    ctx.drawImage(pendingImg, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    closeCropModal();
+    setImage(c);
+  });
+
+  cropSkipBtn.addEventListener("click", () => {
+    if (!cropState) return;
+    const img = cropState.pendingImg;
+    closeCropModal();
+    setImage(img);
+  });
 
   // 初期表示用のプレースホルダー顔（オリジナル生成、画像ファイル不要）
   function makePlaceholderFace() {
@@ -272,8 +400,8 @@
   let releaseStart = 0;
 
   function easeOutBack(t) {
-    // c1 を大きくして弾む量を大幅増加（標準値1.70158の約2.6倍）
-    const c1 = 4.5, c3 = c1 + 1;
+    // c1 を大きくして弾む量をさらに増加（標準値1.70158の約4倍、オーバーシュート約80%）
+    const c1 = 7, c3 = c1 + 1;
     const x = t - 1;
     return 1 + c3 * x * x * x + c1 * x * x;
   }
@@ -392,26 +520,11 @@
     state = STATE.IDLE;
   }
 
-  // 「現状（rest）」と「リセット後（orig）」の間を、振れ幅を減衰させながら3往復させる（動画デモ用）
-  async function playDecayCycle(amplitude, ms) {
-    await animateVertsTo(
-      (vtx) => ({
-        x: lerp(vtx.restX, vtx.origX, amplitude),
-        y: lerp(vtx.restY, vtx.origY, amplitude),
-      }),
-      ms,
-      easeInOutQuad
-    );
-    await animateVertsTo((vtx) => ({ x: vtx.restX, y: vtx.restY }), ms, easeOutBack);
-  }
-
-  async function runDecayDemo() {
-    const rounds = [
-      { amp: 1.0, ms: 380 },
-      { amp: 0.55, ms: 300 },
-      { amp: 0.28, ms: 230 },
-    ];
-    for (const r of rounds) await playDecayCycle(r.amp, r.ms);
+  // 「現状（rest）」から「リセット後（orig）」へ行って、ぷるんと弾みながら戻る1往復（動画デモ用）
+  // オーバーシュートが強くなったので、通常のリセットと同じ動きを1往復すれば十分に見応えがある
+  async function runVideoDemo() {
+    await animateVertsTo((vtx) => ({ x: vtx.origX, y: vtx.origY }), RELEASE_MS, easeInOutQuad);
+    await animateVertsTo((vtx) => ({ x: vtx.restX, y: vtx.restY }), RELEASE_MS, easeOutBack);
   }
 
   function tick(now) {
@@ -607,7 +720,7 @@
     const stopped = new Promise((resolve) => (recorder.onstop = resolve));
     recorder.start();
 
-    await runDecayDemo();
+    await runVideoDemo();
 
     recorder.stop();
     await stopped;
