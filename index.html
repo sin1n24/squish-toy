@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>顔スクイッシュトイ</title>
+<meta name="description" content="好きな画像をアップロードして、指でつまんで伸ばして変顔にできるブラウザトイ。PC・スマホ対応。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="header">
+    <h1>🫳 顔スクイッシュトイ</h1>
+    <p class="sub">画像をアップロードして、つまんで伸ばして変顔にしよう</p>
+  </header>
+
+  <main class="stage" id="stage">
+    <canvas id="glcanvas"></canvas>
+    <div id="dropHint" class="drop-hint">ここに画像をドロップ</div>
+  </main>
+
+  <div class="controls">
+    <div class="row">
+      <label class="btn file-btn">
+        📷 画像を選ぶ
+        <input type="file" id="fileInput" accept="image/*" hidden>
+      </label>
+      <button class="btn" id="resetBtn">↺ リセット</button>
+      <button class="btn toggle" id="lockBtn" aria-pressed="false">🔓 固定：オフ</button>
+    </div>
+
+    <div class="row slider-row">
+      <label for="radius">つかむ範囲</label>
+      <input type="range" id="radius" min="10" max="55" value="28">
+    </div>
+
+    <div class="row">
+      <button class="btn primary" id="downloadBtn">💾 画像をダウンロード</button>
+      <button class="btn primary" id="shareBtn">🐦 Xでシェア</button>
+    </div>
+  </div>
+
+  <p class="howto">
+    指（マウス）で顔のパーツを<b>タップ長押し</b>してつまみ、そのままドラッグすると伸びます。離すと元に戻ります。<br>
+    <b>「固定」をオンにしてから離す</b>と、変形した顔をそのままキープできます（PCなら <kbd>R</kbd> キーを押しながら離してもOK）。
+  </p>
+
+  <footer class="footer">
+    製作：<a href="https://sin1.studio" target="_blank" rel="noopener">sin1's studio</a>　着想元：スーパーマリオ64「マリオの顔いじり」
+  </footer>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
