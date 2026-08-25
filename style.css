@@ -159,23 +159,8 @@ html, body {
   accent-color: var(--accent);
 }
 
-.howto {
-  margin: 16px 4px 0;
-  font-size: 0.82rem;
-  color: var(--sub);
-  text-align: center;
-  line-height: 1.7;
-}
-.howto kbd {
-  background: #eee6fb;
-  border-radius: 4px;
-  padding: 1px 6px;
-  font-family: inherit;
-  border: 1px solid #d9cdf0;
-}
-
 .privacy {
-  margin: 10px 4px 0;
+  margin: 16px 4px 0;
   font-size: 0.78rem;
   color: var(--sub);
   text-align: center;

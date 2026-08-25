@@ -6,9 +6,9 @@
   const stage = document.getElementById("stage");
   const fileInput = document.getElementById("fileInput");
   const resetBtn = document.getElementById("resetBtn");
+  const undoBtn = document.getElementById("undoBtn");
   const lockBtn = document.getElementById("lockBtn");
   const radiusInput = document.getElementById("radius");
-  const downloadBtn = document.getElementById("downloadBtn");
   const shareBtn = document.getElementById("shareBtn");
   const videoBtn = document.getElementById("videoBtn");
 
@@ -173,6 +173,8 @@
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
     buildMesh(canvas.width, canvas.height);
     dropHint.classList.add("hidden");
+    history = [];
+    updateUndoButton();
     render();
   }
 
@@ -258,11 +260,10 @@
   }
 
   // ---------- 状態管理 ----------
-  // resetting: リセットの復元アニメ中 / auto: 動画撮影などの自動デモ再生中
+  // resetting: リセット/元に戻すの復元アニメ中 / auto: 動画撮影などの自動デモ再生中
   const STATE = { IDLE: "idle", GRABBING: "grabbing", RELEASING: "releasing", RESETTING: "resetting", AUTO: "auto" };
   let state = STATE.IDLE;
   let lockMode = true; // 初期状態は「固定：オン」
-  let tempLock = false; // PC: R キー押しっぱなし
 
   const grab = { pointerId: null, startX: 0, startY: 0, curX: 0, curY: 0, radius: 100 };
   let radiusFraction = 0.28;
@@ -271,11 +272,26 @@
   let releaseStart = 0;
 
   function easeOutBack(t) {
-    const c1 = 1.70158, c3 = c1 + 1;
+    // c1 を大きくして弾む量を大幅増加（標準値1.70158の約2.6倍）
+    const c1 = 4.5, c3 = c1 + 1;
     const x = t - 1;
     return 1 + c3 * x * x * x + c1 * x * x;
   }
   function lerp(a, b, t) { return a + (b - a) * t; }
+
+  // ---------- 元に戻す（Undo）履歴 ----------
+  const HISTORY_MAX = 20;
+  let history = [];
+
+  function updateUndoButton() {
+    undoBtn.disabled = history.length === 0;
+  }
+
+  function pushHistory() {
+    history.push(verts.map((v) => ({ x: v.restX, y: v.restY })));
+    if (history.length > HISTORY_MAX) history.shift();
+    updateUndoButton();
+  }
 
   function canvasPointFromEvent(e) {
     const rect = canvas.getBoundingClientRect();
@@ -323,7 +339,7 @@
     return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   }
 
-  // 各頂点を指定ターゲット（getTarget(vtx) -> {x,y}）へ ms かけてアニメーションさせる
+  // 各頂点を指定ターゲット（getTarget(vtx, i) -> {x,y}）へ ms かけてアニメーションさせる
   function animateVertsTo(getTarget, ms, ease) {
     return new Promise((resolve) => {
       for (const vtx of verts) {
@@ -334,8 +350,9 @@
       function step(now) {
         const t = Math.min(1, Math.max(0, (now - t0) / ms));
         const e = ease(t);
-        for (const vtx of verts) {
-          const target = getTarget(vtx);
+        for (let i = 0; i < verts.length; i++) {
+          const vtx = verts[i];
+          const target = getTarget(vtx, i);
           vtx.x = lerp(vtx.releaseFromX, target.x, e);
           vtx.y = lerp(vtx.releaseFromY, target.y, e);
         }
@@ -351,6 +368,7 @@
   // （「固定」をオフにして手を離した時と同じ、ぷるんと弾む復元アニメーション）
   async function resetMesh() {
     if (state !== STATE.IDLE) return;
+    pushHistory();
     state = STATE.RESETTING;
     await animateVertsTo((vtx) => ({ x: vtx.origX, y: vtx.origY }), RELEASE_MS, easeOutBack);
     for (const vtx of verts) {
@@ -360,48 +378,40 @@
     state = STATE.IDLE;
   }
 
-  // つまんで→伸ばして→ぷるんと戻る、を1サイクル分アニメーションさせる（自動再生用）
-  function pullTo(target, start, radius, ms, ease) {
-    return new Promise((resolve) => {
-      for (const vtx of verts) {
-        vtx.releaseFromX = vtx.restX;
-        vtx.releaseFromY = vtx.restY;
-      }
-      const t0 = performance.now();
-      function step(now) {
-        const t = Math.min(1, Math.max(0, (now - t0) / ms));
-        const e = ease(t);
-        const dx = (target.x - start.x) * e;
-        const dy = (target.y - start.y) * e;
-        for (const vtx of verts) {
-          const ddx = vtx.restX - start.x;
-          const ddy = vtx.restY - start.y;
-          const dist = Math.hypot(ddx, ddy);
-          const tt = dist / radius;
-          const w = tt >= 1 ? 0 : Math.pow(1 - tt * tt, 2);
-          vtx.x = vtx.restX + dx * w;
-          vtx.y = vtx.restY + dy * w;
-        }
-        render();
-        if (t < 1) requestAnimationFrame(step);
-        else resolve();
-      }
-      requestAnimationFrame(step);
-    });
+  // 直前の「固定」または「リセット」で確定した状態を1つ取り消す
+  async function undoLast() {
+    if (state !== STATE.IDLE || history.length === 0) return;
+    const snapshot = history.pop();
+    updateUndoButton();
+    state = STATE.RESETTING;
+    await animateVertsTo((vtx, i) => snapshot[i], RELEASE_MS, easeOutBack);
+    for (let i = 0; i < verts.length; i++) {
+      verts[i].restX = snapshot[i].x;
+      verts[i].restY = snapshot[i].y;
+    }
+    state = STATE.IDLE;
   }
 
-  async function playSquishCycle() {
-    const w = canvas.width, h = canvas.height;
-    const start = { x: w * 0.5, y: h * 0.62 };
-    const target = { x: start.x + w * 0.2, y: start.y - h * 0.24 };
-    const radius = Math.max(30, radiusFraction * Math.min(w, h));
-    await pullTo(target, start, radius, 320, easeInOutQuad);
-    await new Promise((r) => setTimeout(r, 140));
-    await animateVertsTo((vtx) => ({ x: vtx.restX, y: vtx.restY }), 420, easeOutBack);
+  // 「現状（rest）」と「リセット後（orig）」の間を、振れ幅を減衰させながら3往復させる（動画デモ用）
+  async function playDecayCycle(amplitude, ms) {
+    await animateVertsTo(
+      (vtx) => ({
+        x: lerp(vtx.restX, vtx.origX, amplitude),
+        y: lerp(vtx.restY, vtx.origY, amplitude),
+      }),
+      ms,
+      easeInOutQuad
+    );
+    await animateVertsTo((vtx) => ({ x: vtx.restX, y: vtx.restY }), ms, easeOutBack);
   }
 
-  async function runSquishDemo(times) {
-    for (let i = 0; i < times; i++) await playSquishCycle();
+  async function runDecayDemo() {
+    const rounds = [
+      { amp: 1.0, ms: 380 },
+      { amp: 0.55, ms: 300 },
+      { amp: 0.28, ms: 230 },
+    ];
+    for (const r of rounds) await playDecayCycle(r.amp, r.ms);
   }
 
   function tick(now) {
@@ -453,7 +463,8 @@
     if (state !== STATE.GRABBING) return;
     canvas.classList.remove("grabbing");
     grab.pointerId = null;
-    if (lockMode || tempLock) {
+    if (lockMode) {
+      pushHistory();
       bakeToRest();
       state = STATE.IDLE;
       render();
@@ -471,14 +482,6 @@
   canvas.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointerup", onPointerUp);
   window.addEventListener("pointercancel", onPointerUp);
-
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "r" || e.key === "R") tempLock = true;
-    if (e.key === "Escape") resetMesh();
-  });
-  window.addEventListener("keyup", (e) => {
-    if (e.key === "r" || e.key === "R") tempLock = false;
-  });
 
   // ---------- UI ----------
   fileInput.addEventListener("change", (e) => {
@@ -501,6 +504,7 @@
   });
 
   resetBtn.addEventListener("click", resetMesh);
+  undoBtn.addEventListener("click", undoLast);
 
   lockBtn.addEventListener("click", () => {
     lockMode = !lockMode;
@@ -546,25 +550,19 @@
   }
 
   const SITE_URL = "https://sin1.studio/squish-toy/";
-  const SHARE_TEXT = "顔スクイッシュトイで変顔を作ってみた！ " + SITE_URL;
-
-  downloadBtn.addEventListener("click", () => {
-    render();
-    const blob = canvasToBlobSync(canvas);
-    triggerDownload(blob, "squish-face.png");
-  });
+  const SHARE_TEXT = "変顔クリエーターで変顔を作ってみた！ " + SITE_URL;
 
   shareBtn.addEventListener("click", () => {
     render();
     const blob = canvasToBlobSync(canvas);
-    const file = new File([blob], "squish-face.png", { type: "image/png" });
+    const file = new File([blob], "hengao.png", { type: "image/png" });
 
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       navigator.share({ files: [file], text: SHARE_TEXT, url: SITE_URL }).catch(() => {});
       return;
     }
 
-    triggerDownload(blob, "squish-face.png");
+    triggerDownload(blob, "hengao.png");
     window.setTimeout(() => {
       alert("画像を保存しました。お好きなアプリで共有してください。");
     }, 300);
@@ -609,7 +607,7 @@
     const stopped = new Promise((resolve) => (recorder.onstop = resolve));
     recorder.start();
 
-    await runSquishDemo(3);
+    await runDecayDemo();
 
     recorder.stop();
     await stopped;
@@ -621,14 +619,14 @@
     videoBtn.textContent = originalLabel;
 
     const blob = new Blob(chunks, { type: mimeType || "video/webm" });
-    const file = new File([blob], "squish-face.webm", { type: blob.type });
+    const file = new File([blob], "hengao.webm", { type: blob.type });
 
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       navigator.share({ files: [file], text: SHARE_TEXT, url: SITE_URL }).catch(() => {});
       return;
     }
 
-    triggerDownload(blob, "squish-face.webm");
+    triggerDownload(blob, "hengao.webm");
     window.setTimeout(() => {
       alert("動画を保存しました。お好きなアプリで共有してください。");
     }, 300);
