@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>顔スクイッシュトイ</title>
-<meta name="description" content="好きな画像をアップロードして、指でつまんで伸ばして変顔にできるブラウザトイ。PC・スマホ対応。">
+<meta name="description" content="好きな画像を選んで、指でつまんで伸ばして変顔にできるブラウザトイ。画像はサーバーに送信されず、共有するまで全てブラウザ内で処理されます。PC・スマホ対応。">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="wrap">
   <header class="header">
     <h1>🫳 顔スクイッシュトイ</h1>
-    <p class="sub">画像をアップロードして、つまんで伸ばして変顔にしよう</p>
+    <p class="sub">好きな画像を選んで、つまんで伸ばして変顔にしよう</p>
   </header>
 
   <main class="stage" id="stage">
@@ -26,7 +26,7 @@
         <input type="file" id="fileInput" accept="image/*" hidden>
       </label>
       <button class="btn" id="resetBtn">↺ リセット</button>
-      <button class="btn toggle" id="lockBtn" aria-pressed="false">🔓 固定：オフ</button>
+      <button class="btn toggle" id="lockBtn" aria-pressed="true">🔒 固定：オン</button>
     </div>
 
     <div class="row slider-row">
@@ -36,17 +36,23 @@
 
     <div class="row">
       <button class="btn primary" id="downloadBtn">💾 画像をダウンロード</button>
-      <button class="btn primary" id="shareBtn">🐦 Xでシェア</button>
+      <button class="btn primary" id="shareBtn">📤 画像をシェア</button>
+    </div>
+    <div class="row">
+      <button class="btn primary video" id="videoBtn">🎬 変顔動画をシェア</button>
     </div>
   </div>
 
   <p class="howto">
     指（マウス）で顔のパーツを<b>タップ長押し</b>してつまみ、そのままドラッグすると伸びます。離すと元に戻ります。<br>
-    <b>「固定」をオンにしてから離す</b>と、変形した顔をそのままキープできます（PCなら <kbd>R</kbd> キーを押しながら離してもOK）。
+    <b>「固定」をオンにしてから離す</b>と、変形した顔をそのままキープできます（PCなら <kbd>R</kbd> キーを押しながら離してもOK。初期状態では固定はオンです）。
+  </p>
+  <p class="privacy">
+    🔒 選んだ画像はどこにも送信されません。<b>共有ボタンを押すまで、すべてこの端末（ブラウザ）内だけ</b>で処理されます。
   </p>
 
   <footer class="footer">
-    製作：<a href="https://sin1.studio" target="_blank" rel="noopener">sin1's studio</a>　着想元：スーパーマリオ64「マリオの顔いじり」
+    製作：<a href="https://sin1.studio" target="_blank" rel="noopener">sin1's studio</a>
   </footer>
 </div>
 

@@ -129,6 +129,16 @@ html, body {
   border: none;
 }
 
+.btn.primary.video {
+  background: linear-gradient(135deg, #8a63ff, #4fb6ff);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
+}
+
 .btn.toggle[aria-pressed="true"] {
   background: var(--lock-on);
   color: #fff;
@@ -162,6 +172,14 @@ html, body {
   padding: 1px 6px;
   font-family: inherit;
   border: 1px solid #d9cdf0;
+}
+
+.privacy {
+  margin: 10px 4px 0;
+  font-size: 0.78rem;
+  color: var(--sub);
+  text-align: center;
+  line-height: 1.6;
 }
 
 .footer {
