@@ -5,13 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>変顔クリエーター</title>
 <meta name="description" content="好きな画像を選んで、指でつまんで伸ばして変顔にできるブラウザトイ。画像はサーバーに送信されず、共有するまで全てブラウザ内で処理されます。PC・スマホ対応。">
+<meta name="theme-color" content="#f3f1ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e0e11" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="wrap">
   <header class="header">
-    <h1>🫳 変顔クリエーター</h1>
-    <p class="sub">好きな画像を選んで、つまんで伸ばして変顔にしよう</p>
+    <p class="eyebrow">HENGAO<span>CREATOR</span></p>
+    <h1>変顔クリエーター</h1>
+    <p class="sub">つまんで、伸ばして、ぷるんと戻る。</p>
   </header>
 
   <main class="stage" id="stage">
@@ -19,30 +25,48 @@
     <div id="dropHint" class="drop-hint">ここに画像をドロップ</div>
   </main>
 
-  <div class="controls">
-    <div class="row">
-      <label class="btn file-btn">
-        📷 画像を選ぶ
+  <section class="panel">
+    <div class="tools">
+      <label class="tool">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+        <span>画像を選ぶ</span>
         <input type="file" id="fileInput" accept="image/*" hidden>
       </label>
-      <button class="btn" id="resetBtn">↺ リセット</button>
-      <button class="btn" id="undoBtn" disabled>↩️ 元に戻す</button>
-      <button class="btn toggle" id="lockBtn" aria-pressed="true">🔒 固定：オン</button>
+      <button class="tool" id="undoBtn" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+        <span>元に戻す</span>
+      </button>
+      <button class="tool" id="resetBtn">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        <span>リセット</span>
+      </button>
+      <button class="tool toggle" id="lockBtn" aria-pressed="true">
+        <span class="switch" aria-hidden="true"><span class="knob"></span></span>
+        <span id="lockLabel">固定 ON</span>
+      </button>
     </div>
 
-    <div class="row slider-row">
+    <div class="slider-row">
       <label for="radius">つかむ範囲</label>
       <input type="range" id="radius" min="10" max="55" value="28">
+      <output id="radiusValue" for="radius">28</output>
     </div>
 
-    <div class="row">
-      <button class="btn primary" id="shareBtn">📤 画像をシェア</button>
-      <button class="btn primary video" id="videoBtn">🎬 動画をシェア</button>
+    <div class="actions">
+      <button class="action primary" id="shareBtn">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg>
+        <span>画像をシェア</span>
+      </button>
+      <button class="action secondary" id="videoBtn">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 13 5.2 3.5a.5.5 0 0 0 .8-.4V7.9a.5.5 0 0 0-.8-.4L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+        <span>動画をシェア</span>
+      </button>
     </div>
-  </div>
+  </section>
 
   <p class="privacy">
-    🔒 共有ボタンを押すまでは、選んだ画像は全てこの端末（ブラウザ）内だけで処理されます。
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    共有ボタンを押すまでは、選んだ画像は全てこの端末（ブラウザ）内だけで処理されます。
   </p>
 
   <footer class="footer">
@@ -52,7 +76,10 @@
 
 <div id="cropModal" class="crop-modal hidden">
   <div class="crop-card">
-    <p class="crop-title">トリミング（そのまま使う場合は「全体を使う」）</p>
+    <div class="crop-head">
+      <p class="crop-title">トリミング</p>
+      <p class="crop-note">四隅をドラッグして範囲を調整</p>
+    </div>
     <div class="crop-stage" id="cropStage">
       <div id="cropBox" class="crop-box">
         <div class="crop-handle" data-corner="nw"></div>
@@ -62,8 +89,8 @@
       </div>
     </div>
     <div class="crop-actions">
-      <button class="btn" id="cropSkipBtn">全体を使う</button>
-      <button class="btn primary" id="cropApplyBtn">この範囲で決定</button>
+      <button class="action secondary" id="cropSkipBtn">全体を使う</button>
+      <button class="action primary" id="cropApplyBtn">この範囲で決定</button>
     </div>
   </div>
 </div>

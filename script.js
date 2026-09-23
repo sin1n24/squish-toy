@@ -11,6 +11,9 @@
   const radiusInput = document.getElementById("radius");
   const shareBtn = document.getElementById("shareBtn");
   const videoBtn = document.getElementById("videoBtn");
+  const videoLabel = videoBtn.querySelector("span");
+  const lockLabel = document.getElementById("lockLabel");
+  const radiusValue = document.getElementById("radiusValue");
   const cropModal = document.getElementById("cropModal");
   const cropStage = document.getElementById("cropStage");
   const cropBox = document.getElementById("cropBox");
@@ -155,7 +158,9 @@
   let currentImage = null;
 
   function fitCanvasToImage(img) {
-    const maxW = Math.min(stage.clientWidth - 28, 560);
+    const cs = getComputedStyle(stage);
+    const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+    const maxW = Math.min(stage.clientWidth - padX, 560);
     const maxH = Math.min(window.innerHeight * 0.55, 560);
     const iw = img.width, ih = img.height;
     let scale = Math.min(maxW / iw, maxH / ih);
@@ -208,6 +213,10 @@
     cropBox.style.top = box.y + "px";
     cropBox.style.width = box.w + "px";
     cropBox.style.height = box.h + "px";
+    cropStage.style.setProperty("--cx", box.x + "px");
+    cropStage.style.setProperty("--cy", box.y + "px");
+    cropStage.style.setProperty("--cw", box.w + "px");
+    cropStage.style.setProperty("--ch", box.h + "px");
   }
 
   function openCropModal(img) {
@@ -622,12 +631,21 @@
   lockBtn.addEventListener("click", () => {
     lockMode = !lockMode;
     lockBtn.setAttribute("aria-pressed", String(lockMode));
-    lockBtn.textContent = lockMode ? "🔒 固定：オン" : "🔓 固定：オフ";
+    lockLabel.textContent = lockMode ? "固定 ON" : "固定 OFF";
   });
+
+  function updateRadiusUI() {
+    const min = Number(radiusInput.min), max = Number(radiusInput.max);
+    const pct = ((Number(radiusInput.value) - min) / (max - min)) * 100;
+    radiusInput.style.setProperty("--pct", pct + "%");
+    radiusValue.textContent = radiusInput.value;
+  }
 
   radiusInput.addEventListener("input", () => {
     radiusFraction = Number(radiusInput.value) / 100;
+    updateRadiusUI();
   });
+  updateRadiusUI();
 
   window.addEventListener("resize", () => {
     if (!currentImage) return;
@@ -694,8 +712,8 @@
     mediaRecording = true;
     state = STATE.AUTO;
     videoBtn.disabled = true;
-    const originalLabel = videoBtn.textContent;
-    videoBtn.textContent = "🎬 撮影中…";
+    const originalLabel = videoLabel.textContent;
+    videoLabel.textContent = "撮影中…";
 
     const stream = canvas.captureStream(30);
     const candidates = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
@@ -708,7 +726,7 @@
       mediaRecording = false;
       state = STATE.IDLE;
       videoBtn.disabled = false;
-      videoBtn.textContent = originalLabel;
+      videoLabel.textContent = originalLabel;
       alert("動画の作成に失敗しました。");
       return;
     }
@@ -729,7 +747,7 @@
     mediaRecording = false;
     state = STATE.IDLE;
     videoBtn.disabled = false;
-    videoBtn.textContent = originalLabel;
+    videoLabel.textContent = originalLabel;
 
     const blob = new Blob(chunks, { type: mimeType || "video/webm" });
     const file = new File([blob], "hengao.webm", { type: blob.type });
