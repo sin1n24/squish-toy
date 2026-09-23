@@ -765,12 +765,6 @@
 
   videoBtn.addEventListener("click", shareVideoHandler);
 
-  // ---------- 関連商品（Amazonアソシエイト: sin1n24-22） ----------
-  const AMAZON_TAG = "sin1n24-22";
-  document.querySelectorAll(".product[data-q]").forEach((a) => {
-    a.href = "https://www.amazon.co.jp/s?k=" + encodeURIComponent(a.dataset.q) + "&tag=" + AMAZON_TAG;
-  });
-
   // ---------- 初期化 ----------
   setImage(makePlaceholderFace());
 })();
