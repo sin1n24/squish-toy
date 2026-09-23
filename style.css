@@ -391,18 +391,21 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .footer {
-  margin-top: 28px;
-  text-align: center;
-  font-size: 0.74rem;
-  color: var(--muted);
+  margin-top: 40px;
+  display: flex;
+  justify-content: center;
 }
-.footer a {
-  color: var(--ink);
-  font-weight: 700;
-  text-decoration: none;
-  border-bottom: 1px solid var(--line-strong);
+.footer-logo {
+  display: block;
+  opacity: 0.85;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
-.footer a:hover { border-color: var(--ink); }
+.footer-logo:hover { opacity: 1; transform: translateY(-1px); }
+.footer-logo img {
+  display: block;
+  width: 150px;
+  height: auto;
+}
 
 @media (max-width: 400px) {
   .tool { min-height: 66px; font-size: 0.72rem; }

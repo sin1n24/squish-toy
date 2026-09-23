@@ -405,14 +405,17 @@
   const grab = { pointerId: null, startX: 0, startY: 0, curX: 0, curY: 0, radius: 100 };
   let radiusFraction = 0.28;
 
-  const RELEASE_MS = 380;
+  const RELEASE_MS = 380; // 動画デモで「リセット後の形」へ向かう行きの時間
+  const SPRING_MS = 1000;  // 離した/リセット/元に戻す/動画の戻り：ばねで揺れながら戻る時間
   let releaseStart = 0;
 
-  function easeOutBack(t) {
-    // c1 を大きくして弾む量をさらに増加（標準値1.70158の約4倍、オーバーシュート約80%）
-    const c1 = 7, c3 = c1 + 1;
-    const x = t - 1;
-    return 1 + c3 * x * x * x + c1 * x * x;
+  // 減衰振動（ばね）。1回で止まらず、+65%→-41%→+24%→-11% と2〜3回揺れて収まる
+  // 末尾の (1 - t^4) で t=1 のとき必ずぴったり目標に一致させる
+  function easeSpring(t) {
+    if (t >= 1) return 1;
+    const DECAY = 2.2;   // 大きいほど早く減衰
+    const CYCLES = 2.5;  // 揺れる回数（往復数）
+    return 1 - Math.exp(-DECAY * t) * Math.cos(2 * Math.PI * CYCLES * t) * (1 - t * t * t * t);
   }
   function lerp(a, b, t) { return a + (b - a) * t; }
 
@@ -507,7 +510,7 @@
     if (state !== STATE.IDLE) return;
     pushHistory();
     state = STATE.RESETTING;
-    await animateVertsTo((vtx) => ({ x: vtx.origX, y: vtx.origY }), RELEASE_MS, easeOutBack);
+    await animateVertsTo((vtx) => ({ x: vtx.origX, y: vtx.origY }), SPRING_MS, easeSpring);
     for (const vtx of verts) {
       vtx.restX = vtx.origX;
       vtx.restY = vtx.origY;
@@ -521,7 +524,7 @@
     const snapshot = history.pop();
     updateUndoButton();
     state = STATE.RESETTING;
-    await animateVertsTo((vtx, i) => snapshot[i], RELEASE_MS, easeOutBack);
+    await animateVertsTo((vtx, i) => snapshot[i], SPRING_MS, easeSpring);
     for (let i = 0; i < verts.length; i++) {
       verts[i].restX = snapshot[i].x;
       verts[i].restY = snapshot[i].y;
@@ -533,7 +536,7 @@
   // オーバーシュートが強くなったので、通常のリセットと同じ動きを1往復すれば十分に見応えがある
   async function runVideoDemo() {
     await animateVertsTo((vtx) => ({ x: vtx.origX, y: vtx.origY }), RELEASE_MS, easeInOutQuad);
-    await animateVertsTo((vtx) => ({ x: vtx.restX, y: vtx.restY }), RELEASE_MS, easeOutBack);
+    await animateVertsTo((vtx) => ({ x: vtx.restX, y: vtx.restY }), SPRING_MS, easeSpring);
   }
 
   function tick(now) {
@@ -542,8 +545,8 @@
       render();
       requestAnimationFrame(tick);
     } else if (state === STATE.RELEASING) {
-      const t = Math.min(1, Math.max(0, (now - releaseStart) / RELEASE_MS));
-      const e = easeOutBack(t);
+      const t = Math.min(1, Math.max(0, (now - releaseStart) / SPRING_MS));
+      const e = easeSpring(t);
       for (const vtx of verts) {
         vtx.x = lerp(vtx.releaseFromX, vtx.restX, e);
         vtx.y = lerp(vtx.releaseFromY, vtx.restY, e);
