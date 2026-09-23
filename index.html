@@ -145,6 +145,25 @@
   </div>
 </div>
 
+<div id="videoModal" class="crop-modal hidden">
+  <div class="crop-card video-card">
+    <div class="crop-head">
+      <p class="crop-title">動画ができました</p>
+      <p class="crop-note">内容を確認してシェアまたは保存してください</p>
+    </div>
+    <video id="videoPreview" class="video-preview" playsinline muted loop></video>
+    <div class="crop-actions">
+      <button class="action secondary" id="videoCloseBtn">閉じる</button>
+      <button class="action primary" id="videoShareBtn">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg>
+        <span id="videoShareLabel">シェア</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
 <script src="script.js"></script>
 </body>
 </html>

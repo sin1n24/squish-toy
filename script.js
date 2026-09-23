@@ -19,6 +19,12 @@
   const cropBox = document.getElementById("cropBox");
   const cropSkipBtn = document.getElementById("cropSkipBtn");
   const cropApplyBtn = document.getElementById("cropApplyBtn");
+  const videoModal = document.getElementById("videoModal");
+  const videoPreview = document.getElementById("videoPreview");
+  const videoShareBtn = document.getElementById("videoShareBtn");
+  const videoShareLabel = document.getElementById("videoShareLabel");
+  const videoCloseBtn = document.getElementById("videoCloseBtn");
+  const toast = document.getElementById("toast");
 
   const gl = canvas.getContext("webgl", { preserveDrawingBuffer: true, antialias: true })
           || canvas.getContext("experimental-webgl", { preserveDrawingBuffer: true });
@@ -220,8 +226,9 @@
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.style.width = dispW + "px";
     canvas.style.height = dispH + "px";
-    canvas.width = Math.round(dispW * dpr);
-    canvas.height = Math.round(dispH * dpr);
+    // 動画(H.264)は縦横が偶数でないと失敗する環境があるため偶数に揃える
+    canvas.width = Math.round((dispW * dpr) / 2) * 2;
+    canvas.height = Math.round((dispH * dpr) / 2) * 2;
   }
 
   function setImage(img) {
@@ -580,11 +587,30 @@
     state = STATE.IDLE;
   }
 
-  // 「現状（rest）」から「リセット後（orig）」へ行って、ぷるんと弾みながら戻る1往復（動画デモ用）
-  // オーバーシュートが強くなったので、通常のリセットと同じ動きを1往復すれば十分に見応えがある
+  // 静止区間も毎フレーム描画する（canvas.captureStream は描画が無いとフレームを出さないため）
+  function holdFrames(ms) {
+    return new Promise((resolve) => {
+      const t0 = performance.now();
+      function step(now) {
+        render();
+        if (now - t0 < ms) requestAnimationFrame(step);
+        else resolve();
+      }
+      requestAnimationFrame(step);
+    });
+  }
+
+  function isDeformed() {
+    return verts.some((v) => Math.abs(v.restX - v.origX) > 1 || Math.abs(v.restY - v.origY) > 1);
+  }
+
+  // 動画デモ：変顔 →（ばねで）元の顔 →（ばねで）変顔 の1往復。前後に静止区間を入れる
   async function runVideoDemo() {
-    await animateVertsTo((vtx) => ({ x: vtx.origX, y: vtx.origY }), RELEASE_MS, easeInOutQuad);
+    await holdFrames(500);
+    await animateVertsTo((vtx) => ({ x: vtx.origX, y: vtx.origY }), SPRING_MS, easeSpring);
+    await holdFrames(400);
     await animateVertsTo((vtx) => ({ x: vtx.restX, y: vtx.restY }), SPRING_MS, easeSpring);
+    await holdFrames(700);
   }
 
   function tick(now) {
@@ -734,29 +760,96 @@
   const SITE_URL = "https://sin1.studio/squish-toy/";
   const SHARE_TEXT = "変顔クリエーターで変顔を作ってみた！ " + SITE_URL;
 
+  // ---------- 通知（alertの代わり） ----------
+  let toastTimer = null;
+  function showToast(msg, ms = 2800) {
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("show"), ms);
+  }
+
+  // シェアに失敗(非対応・拒否)したら保存に切り替える。ユーザーが閉じた(AbortError)場合は何もしない
+  async function shareOrSave(file, blob) {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], text: SHARE_TEXT, url: SITE_URL });
+        return;
+      } catch (err) {
+        if (err && err.name === "AbortError") return;
+      }
+    }
+    triggerDownload(blob, file.name);
+    showToast("保存しました。お好きなアプリで共有してください。");
+  }
+
   shareBtn.addEventListener("click", () => {
     render();
     const blob = canvasToBlobSync(canvas);
-    const file = new File([blob], "hengao.png", { type: "image/png" });
+    shareOrSave(new File([blob], "hengao.png", { type: "image/png" }), blob);
+  });
 
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file], text: SHARE_TEXT, url: SITE_URL }).catch(() => {});
+  // ---------- 動画でシェア ----------
+  // 撮影(約3.5秒)の後に navigator.share を呼ぶと、タップ直後の扱いが切れて iOS Safari 等で拒否される。
+  // そのため撮影後はプレビューを出し、そこでのタップで共有/保存する
+  let mediaRecording = false;
+  let videoFile = null;
+  let videoUrl = null;
+
+  function pickVideoMime() {
+    const candidates = [
+      "video/mp4;codecs=avc1.42E01E",
+      "video/mp4;codecs=avc1",
+      "video/mp4",
+      "video/webm;codecs=vp9",
+      "video/webm;codecs=vp8",
+      "video/webm",
+    ];
+    return candidates.find((m) => MediaRecorder.isTypeSupported(m)) || "";
+  }
+
+  function closeVideoModal() {
+    videoModal.classList.add("hidden");
+    videoPreview.pause();
+    videoPreview.removeAttribute("src");
+    videoPreview.load();
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    videoUrl = null;
+    videoFile = null;
+  }
+
+  function openVideoModal(file) {
+    videoFile = file;
+    videoUrl = URL.createObjectURL(file);
+    videoPreview.src = videoUrl;
+    const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+    videoShareLabel.textContent = canShare ? "シェア" : "保存";
+    videoModal.classList.remove("hidden");
+    videoPreview.play().catch(() => {});
+  }
+
+  async function recordVideo() {
+    if (!currentImage || state !== STATE.IDLE || mediaRecording) return;
+    if (!canvas.captureStream || typeof MediaRecorder === "undefined") {
+      showToast("お使いのブラウザは動画の書き出しに対応していません。");
+      return;
+    }
+    if (!isDeformed()) {
+      showToast("まず顔をつまんで変顔にしてから押してね（固定ONで離すとキープ）");
       return;
     }
 
-    triggerDownload(blob, "hengao.png");
-    window.setTimeout(() => {
-      alert("画像を保存しました。お好きなアプリで共有してください。");
-    }, 300);
-  });
-
-  // ---------- 変顔動画でシェア ----------
-  let mediaRecording = false;
-
-  async function shareVideoHandler() {
-    if (!currentImage || state !== STATE.IDLE || mediaRecording) return;
-    if (!canvas.captureStream || typeof MediaRecorder === "undefined") {
-      alert("お使いのブラウザは動画の書き出しに対応していません。");
+    const mimeType = pickVideoMime();
+    const stream = canvas.captureStream(30);
+    let recorder;
+    try {
+      recorder = new MediaRecorder(stream, {
+        ...(mimeType ? { mimeType } : {}),
+        videoBitsPerSecond: 6_000_000,
+      });
+    } catch (err) {
+      stream.getTracks().forEach((t) => t.stop());
+      showToast("動画の作成に失敗しました。");
       return;
     }
 
@@ -766,55 +859,40 @@
     const originalLabel = videoLabel.textContent;
     videoLabel.textContent = "撮影中…";
 
-    const stream = canvas.captureStream(30);
-    const candidates = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
-    const mimeType = candidates.find((m) => MediaRecorder.isTypeSupported(m));
-
-    let recorder;
-    try {
-      recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-    } catch (err) {
-      mediaRecording = false;
-      state = STATE.IDLE;
-      videoBtn.disabled = false;
-      videoLabel.textContent = originalLabel;
-      alert("動画の作成に失敗しました。");
-      return;
-    }
-
     const chunks = [];
     recorder.ondataavailable = (e) => {
       if (e.data && e.data.size) chunks.push(e.data);
     };
     const stopped = new Promise((resolve) => (recorder.onstop = resolve));
-    recorder.start();
 
-    await runVideoDemo();
-
-    recorder.stop();
-    await stopped;
-    stream.getTracks().forEach((t) => t.stop());
-
-    mediaRecording = false;
-    state = STATE.IDLE;
-    videoBtn.disabled = false;
-    videoLabel.textContent = originalLabel;
-
-    const blob = new Blob(chunks, { type: mimeType || "video/webm" });
-    const file = new File([blob], "hengao.webm", { type: blob.type });
-
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file], text: SHARE_TEXT, url: SITE_URL }).catch(() => {});
-      return;
+    try {
+      recorder.start();
+      await runVideoDemo();
+      recorder.stop();
+      await stopped;
+    } finally {
+      stream.getTracks().forEach((t) => t.stop());
+      mediaRecording = false;
+      state = STATE.IDLE;
+      videoBtn.disabled = false;
+      videoLabel.textContent = originalLabel;
     }
 
-    triggerDownload(blob, "hengao.webm");
-    window.setTimeout(() => {
-      alert("動画を保存しました。お好きなアプリで共有してください。");
-    }, 300);
+    const type = (recorder.mimeType || mimeType || "video/webm").split(";")[0];
+    const blob = new Blob(chunks, { type });
+    if (!blob.size) {
+      showToast("動画の作成に失敗しました。");
+      return;
+    }
+    const ext = type.includes("mp4") ? "mp4" : "webm";
+    openVideoModal(new File([blob], "hengao." + ext, { type }));
   }
 
-  videoBtn.addEventListener("click", shareVideoHandler);
+  videoBtn.addEventListener("click", recordVideo);
+  videoShareBtn.addEventListener("click", () => {
+    if (videoFile) shareOrSave(videoFile, videoFile);
+  });
+  videoCloseBtn.addEventListener("click", closeVideoModal);
 
   // ---------- 初期化 ----------
   setImage(makePlaceholderFace());
