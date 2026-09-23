@@ -69,6 +69,42 @@
   const a_texcoord = gl.getAttribLocation(program, "a_texcoord");
   const u_texture = gl.getUniformLocation(program, "u_texture");
 
+  // ---------- 下地（縁の色を引き延ばして塗る） ----------
+  // メッシュの端が内側へ動くと外側が透明（白）になって目立つため、
+  // 各画素を「いちばん近い画像の縁」の色で先に塗っておく
+  const bgVsSource = `
+    attribute vec2 a_pos;
+    varying vec2 v_uv;
+    void main() {
+      gl_Position = vec4(a_pos, 0.0, 1.0);
+      v_uv = vec2(a_pos.x * 0.5 + 0.5, 0.5 - a_pos.y * 0.5);
+    }
+  `;
+  const bgFsSource = `
+    precision mediump float;
+    varying vec2 v_uv;
+    uniform sampler2D u_texture;
+    void main() {
+      vec2 uv = v_uv;
+      float dl = uv.x, dr = 1.0 - uv.x, dt = uv.y, db = 1.0 - uv.y;
+      float m = min(min(dl, dr), min(dt, db));
+      if (m == dl) uv.x = 0.0;
+      else if (m == dr) uv.x = 1.0;
+      else if (m == dt) uv.y = 0.0;
+      else uv.y = 1.0;
+      gl_FragColor = texture2D(u_texture, uv);
+    }
+  `;
+  const bgProgram = gl.createProgram();
+  gl.attachShader(bgProgram, compileShader(gl.VERTEX_SHADER, bgVsSource));
+  gl.attachShader(bgProgram, compileShader(gl.FRAGMENT_SHADER, bgFsSource));
+  gl.linkProgram(bgProgram);
+  const bg_a_pos = gl.getAttribLocation(bgProgram, "a_pos");
+  const bg_u_texture = gl.getUniformLocation(bgProgram, "u_texture");
+  const bgQuadBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, bgQuadBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
+
   const positionBuffer = gl.createBuffer();
   const texcoordBuffer = gl.createBuffer();
   const indexBuffer = gl.createBuffer();
@@ -136,6 +172,18 @@
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    // 下地：縁の色で全面を塗る
+    gl.disableVertexAttribArray(a_texcoord);
+    gl.useProgram(bgProgram);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bgQuadBuffer);
+    gl.enableVertexAttribArray(bg_a_pos);
+    gl.vertexAttribPointer(bg_a_pos, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform1i(bg_u_texture, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
 
     gl.useProgram(program);
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
