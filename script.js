@@ -760,6 +760,35 @@
   });
 
   // ---------- 書き出し／シェア ----------
+  // ---------- 書き出し時の透かし（画面には出さない） ----------
+  const WATERMARK_TEXT = "https://sin1.studio/squish-toy";
+
+  function drawWatermark(ctx, w, h) {
+    const size = Math.max(10, Math.round(Math.min(w, h) * 0.026));
+    const pad = Math.round(size * 0.9);
+    ctx.save();
+    ctx.font = "700 " + size + 'px "Zen Kaku Gothic New", system-ui, sans-serif';
+    ctx.textAlign = "right";
+    ctx.textBaseline = "bottom";
+    ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
+    ctx.shadowBlur = size * 0.35;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+    ctx.fillText(WATERMARK_TEXT, w - pad, h - pad * 0.7);
+    ctx.restore();
+  }
+
+  // WebGL キャンバスの内容＋透かしを 2D キャンバスに描いて返す
+  function makeExportCanvas(target) {
+    const out = target || document.createElement("canvas");
+    if (out.width !== canvas.width) out.width = canvas.width;
+    if (out.height !== canvas.height) out.height = canvas.height;
+    const ctx = out.getContext("2d");
+    ctx.clearRect(0, 0, out.width, out.height);
+    ctx.drawImage(canvas, 0, 0);
+    drawWatermark(ctx, out.width, out.height);
+    return out;
+  }
+
   function canvasToBlobSync(cv) {
     const dataUrl = cv.toDataURL("image/png");
     const parts = dataUrl.split(",");
@@ -811,7 +840,7 @@
 
   shareBtn.addEventListener("click", () => {
     render();
-    const blob = canvasToBlobSync(canvas);
+    const blob = canvasToBlobSync(makeExportCanvas());
     shareOrSave(new File([blob], "hengao.png", { type: "image/png" }), blob);
   });
 
@@ -866,7 +895,13 @@
     }
 
     const mimeType = pickVideoMime();
-    const stream = canvas.captureStream(30);
+    const recCanvas = makeExportCanvas();
+    let compositing = true;
+    (function composite() {
+      makeExportCanvas(recCanvas);
+      if (compositing) requestAnimationFrame(composite);
+    })();
+    const stream = recCanvas.captureStream(30);
     let recorder;
     try {
       recorder = new MediaRecorder(stream, {
@@ -874,6 +909,7 @@
         videoBitsPerSecond: 6_000_000,
       });
     } catch (err) {
+      compositing = false;
       stream.getTracks().forEach((t) => t.stop());
       showToast("動画の作成に失敗しました。");
       return;
@@ -897,6 +933,7 @@
       recorder.stop();
       await stopped;
     } finally {
+      compositing = false;
       stream.getTracks().forEach((t) => t.stop());
       mediaRecording = false;
       state = STATE.IDLE;
