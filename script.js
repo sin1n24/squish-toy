@@ -783,7 +783,8 @@
   }
 
   const SITE_URL = "https://sin1.studio/squish-toy/";
-  const SHARE_TEXT = "変顔クリエーターで変顔を作ってみた！ " + SITE_URL;
+  // URLは本文に含める（url欄も渡すとXなどでURLが2回出るため渡さない）
+  const SHARE_TEXT = "#変顔クリエーター でつくってみたよ！" + SITE_URL;
 
   // ---------- 通知（alertの代わり） ----------
   let toastTimer = null;
@@ -798,7 +799,7 @@
   async function shareOrSave(file, blob) {
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
-        await navigator.share({ files: [file], text: SHARE_TEXT, url: SITE_URL });
+        await navigator.share({ files: [file], text: SHARE_TEXT });
         return;
       } catch (err) {
         if (err && err.name === "AbortError") return;
