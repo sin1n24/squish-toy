@@ -392,17 +392,42 @@
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, 512, 512);
 
+    const HAIR = "#3b2820";
+
+    // 後ろ髪（ボブ）
+    ctx.fillStyle = HAIR;
+    ctx.beginPath();
+    ctx.ellipse(256, 250, 200, 205, 0, 0, Math.PI * 2);
+    ctx.fill();
+
     // 輪郭
     ctx.fillStyle = "#ffdcb0";
     ctx.beginPath();
     ctx.ellipse(256, 280, 170, 190, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 耳
+    // 前髪（眉にかからない高さで、毛先をぎざぎざに）
+    ctx.fillStyle = HAIR;
     ctx.beginPath();
-    ctx.ellipse(96, 260, 34, 44, 0, 0, Math.PI * 2);
-    ctx.ellipse(416, 260, 34, 44, 0, 0, Math.PI * 2);
+    ctx.moveTo(80, 250);
+    ctx.ellipse(256, 215, 178, 160, 0, Math.PI, Math.PI * 2);
+    ctx.lineTo(434, 250);
+    ctx.quadraticCurveTo(425, 185, 372, 168);
+    ctx.quadraticCurveTo(345, 192, 312, 164);
+    ctx.quadraticCurveTo(284, 190, 252, 162);
+    ctx.quadraticCurveTo(222, 190, 192, 165);
+    ctx.quadraticCurveTo(162, 192, 138, 170);
+    ctx.quadraticCurveTo(90, 188, 80, 250);
+    ctx.closePath();
     ctx.fill();
+
+    // 髪のつや
+    ctx.strokeStyle = "rgba(255,255,255,0.22)";
+    ctx.lineWidth = 10;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.arc(256, 215, 140, 1.18 * Math.PI, 1.42 * Math.PI);
+    ctx.stroke();
 
     // ほっぺ
     ctx.fillStyle = "#ff9e9e";
