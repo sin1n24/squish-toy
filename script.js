@@ -894,6 +894,56 @@
   });
   videoCloseBtn.addEventListener("click", closeVideoModal);
 
+  // ---------- 関連商品（12個からランダムで4つ表示） ----------
+  const AMAZON_TAG = "sin1n24-22";
+  const PRODUCTS = [
+    ["B07W6YXFRJ", "CINECE 福笑い お正月遊びセット おかめとひょっとこ柄（２枚1セット）", "71ACQvh3ArL"],
+    ["B0DZ5GST4J", "Amazonベーシック スマホ用三脚 自撮り棒 スマホスタンド リモコン付属 高さ調節可能 最大91.4cm 360度回転雲台", "51ny8fkdLzL"],
+    ["B0BBG2R1YK", "キヤノン iNSPiC PV-223-WH スマホ専用ミニフォトプリンター ホワイト", "511AsGBCRaL"],
+    ["B09V897K6V", "スクイーズ玩具 30個セット ストレス解消グッズ 低反発 もちもち", "71zMUmPbyuL"],
+    ["B075ZS5JJX", "メガネおもちゃ 口ひげ 鼻付き ピエロ パーティー 仮装 いたずら 面白い 余興", "61Cjr8HeGmL"],
+    ["B0CKZ5CKPP", "210°魚眼レンズ フィッシュアイ スマホ用カメラレンズ クリップ式 自撮りレンズ", "619FI2s8pNL"],
+    ["B0G5P496HD", "富士フイルム(FUJIFILM) チェキ インスタントカメラ instax mini 13 クレイホワイト", "61oQ9PMvJ6L"],
+    ["B07D2DVX6D", "富士フイルム instax チェキ用フィルム INSTAX MINI JP 1 10枚入", "61r0WTpGq2L"],
+    ["404896996X", "1週間後には「マイナス7歳」見ちがえる! 間々田佳子のかんたん顔筋トレ", "51WakAX10TS"],
+    ["B00L6DAD52", "赤ちゃんマスク 大人用 ガキ使 笑ってはいけない 仮装 変装 被り物 リアル赤ちゃん 泣き顔マスク", "51FzxEZQbcL"],
+    ["B0BHHQSZST", "オンダ(Onda) 玩具 ポップチューブ やみつきチューブ ストレス発散 伸びる ストロー", "71SCgZCYffL"],
+    ["B083VTB3KV", "ポスター A3サイズ 絵画 (日本製) 名画 レオナルド ダ ヴィンチ モナ リザ", "816pNz2A3LL"],
+  ];
+  const RELATED_COUNT = 4;
+
+  function renderRelatedProducts() {
+    const grid = document.getElementById("relatedGrid");
+    if (!grid) return;
+    const pool = PRODUCTS.slice();
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    grid.innerHTML = "";
+    for (const [asin, title, img] of pool.slice(0, RELATED_COUNT)) {
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.className = "product-card";
+      a.href = "https://www.amazon.co.jp/dp/" + asin + "/?tag=" + AMAZON_TAG;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer sponsored";
+      const im = document.createElement("img");
+      im.className = "product-card-image";
+      im.src = "https://m.media-amazon.com/images/I/" + img + "._AC_SX679_.jpg";
+      im.alt = "";
+      im.loading = "lazy";
+      im.decoding = "async";
+      const span = document.createElement("span");
+      span.className = "product-card-title";
+      span.textContent = title;
+      a.append(im, span);
+      li.append(a);
+      grid.append(li);
+    }
+  }
+  renderRelatedProducts();
+
   // ---------- 初期化 ----------
   setImage(makePlaceholderFace());
 })();
